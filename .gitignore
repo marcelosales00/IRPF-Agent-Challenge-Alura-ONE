@@ -1,0 +1,31 @@
+# Ambientes Virtuais
+.venv/
+venv/
+ENV/
+env/
+
+# Python Cache e Compilados
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Variáveis de Ambiente e Segredos
+.env
+.env.local
+.streamlit/secrets.toml
+
+# Logs
+logs/*.log
+!logs/.gitkeep
+
+# IDE e Sistema Operacional
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Temporários
+*.tmp
+*.bak
