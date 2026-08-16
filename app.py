@@ -1,13 +1,13 @@
 """
-Interface Principal Streamlit do Leão IRPF Agent.
+Leão IRPF Agent — Entrypoint Principal.
 
-Fornece uma experiência de chat interativa, intuitiva e reativa para o contribuinte
-tirar dúvidas sobre a declaração de Imposto de Renda 2026.
+Orquestra a integração entre a camada visual Atomic Design (ui/)
+e os módulos de regras de negócio RAG / LLM (core/).
 """
 
 import os
-import streamlit as st
 from pathlib import Path
+import streamlit as st
 from dotenv import load_dotenv
 
 from core.logger import get_logger
@@ -15,148 +15,92 @@ from core.pdf_reader import IRPFDocumentReader
 from core.search import SearchEngine
 from core.llm import GeminiClient
 
-# Carregar variáveis de ambiente do .env
-load_dotenv()
-
-logger = get_logger("app")
-
-# Configuração da página Streamlit
-st.set_page_config(
-    page_title="Leão IRPF Agent — Assistente IRPF 2026",
-    page_icon="🦁",
-    layout="wide",
-    initial_sidebar_state="expanded"
+from ui.layout import setup_page_layout, render_message_feed
+from ui.organisms import (
+    render_hero_banner,
+    render_sidebar_organism,
+    render_quick_questions_organism,
+    render_sources_drawer_organism
 )
 
-# Caminho padrão do PDF
+# Carregar variáveis de ambiente
+load_dotenv()
+logger = get_logger("app")
+
+# Caminho oficial do PDF
 PDF_PATH = Path(__file__).parent / "data" / "P&R IRPF 2026.pdf"
 
 
 @st.cache_resource(show_spinner="📖 Processando e indexando o guia oficial da Receita Federal...")
 def load_search_engine() -> SearchEngine:
-    """
-    Carrega o PDF e indexa os chunks em cache na inicialização.
-    """
-    logger.info("Carregando motor de busca via st.cache_resource...")
+    """Carrega e indexa o PDF oficial uma única vez na inicialização."""
+    logger.info("Inicializando SearchEngine via st.cache_resource...")
     reader = IRPFDocumentReader(str(PDF_PATH))
     chunks = reader.extract_questions()
-    search_engine = SearchEngine(chunks)
-    logger.info(f"Motor de busca pronto com {len(chunks)} perguntas indexadas.")
-    return search_engine
+    engine = SearchEngine(chunks)
+    logger.info(f"SearchEngine pronto com {len(chunks)} perguntas indexadas.")
+    return engine
 
 
 def main() -> None:
-    """Função principal da aplicação Streamlit."""
-    
-    # Inicializar estado da sessão
+    """Orquestrador principal da aplicação."""
+    # 1. Configurar Layout e Estilos Globais
+    setup_page_layout()
+
+    # 2. Inicializar Estado da Sessão
     if "messages" not in st.session_state:
         st.session_state.messages = []
     if "api_key" not in st.session_state:
         st.session_state.api_key = os.getenv("GEMINI_API_KEY", "")
 
-    # Barra Lateral (Sidebar)
-    with st.sidebar:
-        st.title("🦁 Leão IRPF Agent")
-        st.caption("Assistente Tributário Inteligente — IRPF 2026")
-        st.markdown("---")
+    # 3. Carregar Backend RAG (cached)
+    try:
+        search_engine = load_search_engine()
+        chunks_count = len(search_engine.chunks)
+    except Exception as exc:
+        st.error(f"❌ Erro ao carregar a base de conhecimento PDF: {exc}")
+        logger.error(f"Falha ao carregar search engine: {exc}", exc_info=True)
+        st.stop()
 
-        st.subheader("🔑 Configuração de API")
-        user_key = st.text_input(
-            "Chave de API do Gemini",
-            value=st.session_state.api_key,
-            type="password",
-            help="Obtenha sua chave gratuita em https://aistudio.google.com/"
-        )
-        if user_key != st.session_state.api_key:
-            st.session_state.api_key = user_key
-
-        selected_model = st.selectbox(
-            "Modelo do Gemini",
-            options=["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"],
-            index=0
-        )
-
-        st.markdown("---")
-        st.subheader("📊 Documento Fonte")
-        
-        # Carregar motor de busca (cached)
-        try:
-            search_engine = load_search_engine()
-            st.success(f"✅ {len(search_engine.chunks)} perguntas indexadas!")
-            st.caption(f"Documento: `P&R IRPF 2026.pdf`")
-        except Exception as exc:
-            st.error(f"❌ Erro ao carregar o PDF: {exc}")
-            logger.error(f"Erro ao carregar search engine no app: {exc}")
-            st.stop()
-
-        st.markdown("---")
-        if st.button("🧹 Limpar Histórico de Conversa", use_container_width=True):
-            st.session_state.messages = []
-            st.rerun()
-
-        st.markdown(
-            "<div style='text-align: center; color: #6c757d; font-size: 0.8rem; margin-top: 2rem;'>"
-            "Desenvolvido para o <b>Challenge Alura Agente</b><br/>"
-            "Fonte: Receita Federal do Brasil"
-            "</div>",
-            unsafe_allow_html=True
-        )
-
-    # Painel Principal
-    st.title("🦁 Assistente Virtual IRPF 2026")
-    st.markdown(
-        "Tire suas dúvidas sobre a **Declaração do Imposto de Renda Pessoa Física 2026** "
-        "com fundamentação direta no manual oficial de Perguntas e Respostas da Receita Federal."
+    # 4. Renderizar Barra Lateral (Sidebar Organism)
+    new_api_key, selected_model, clear_clicked = render_sidebar_organism(
+        current_api_key=st.session_state.api_key,
+        chunks_count=chunks_count
     )
 
-    # Botões de Perguntas Rápidas por Categoria
-    st.markdown("##### 💡 Sugestões de Perguntas Rápidas:")
-    col1, col2, col3 = st.columns(3)
+    if new_api_key != st.session_state.api_key:
+        st.session_state.api_key = new_api_key
+        st.rerun()
 
-    quick_query = None
-    with col1:
-        if st.button("📌 Quem é obrigado a declarar?", use_container_width=True):
-            quick_query = "Quem é obrigado a apresentar a declaração do IRPF em 2026?"
-    with col2:
-        if st.button("🎓 Regras para dedução de educação", use_container_width=True):
-            quick_query = "Quais são as regras e limites para dedução de despesas com instrução?"
-    with col3:
-        if st.button("👨‍👩‍👧 Quem pode ser dependente?", use_container_width=True):
-            quick_query = "Quem pode ser considerado dependente na declaração de imposto de renda?"
+    if clear_clicked:
+        st.session_state.messages = []
+        st.rerun()
 
-    st.markdown("---")
+    # 5. Renderizar Hero Header e Sugestões Rápidas (Main Organisms)
+    render_hero_banner()
+    quick_query = render_quick_questions_organism()
 
-    # Exibir Histórico de Mensagens
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-            if "sources" in message and message["sources"]:
-                with st.expander("📚 Fontes consultadas no guia oficial da Receita Federal"):
-                    for src in message["sources"]:
-                        st.markdown(
-                            f"- **Pergunta {src['number']}** (Pág. {src['page']}) — *{src['title']}* "
-                            f"`Relevância: {src['relevance']}`"
-                        )
+    # 6. Renderizar Histórico de Conversas
+    render_message_feed(st.session_state.messages)
 
-    # Capturar Entrada do Usuário (Chat Input ou Botão Rápido)
-    user_input = st.chat_input("Digite sua dúvida sobre o IRPF 2026...")
+    # 7. Capturar Nova Entrada (Chat Input ou Botão Rápido)
+    user_input = st.chat_input("Digite sua dúvida sobre o Imposto de Renda 2026...")
     prompt = quick_query or user_input
 
     if prompt:
-        logger.info(f"Nova pergunta do usuário recebida: '{prompt}'")
+        logger.info(f"Nova pergunta submetida: '{prompt}'")
 
-        # Exibir a pergunta do usuário no chat
+        # Adicionar pergunta do usuário ao histórico
         st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar="👤"):
             st.markdown(prompt)
 
-        # Processamento e Resposta do Assistente
-        with st.chat_message("assistant"):
+        # Processar busca RAG e chamada ao Gemini
+        with st.chat_message("assistant", avatar="🦁"):
             with st.spinner("🔍 Consultando a legislação e preparando a resposta..."):
-                # 1. Recuperar chunks relevantes
+                # Busca semântica dos top-4 chunks
                 search_results = search_engine.search(prompt, top_k=4)
 
-                # Formatar contexto para o prompt da LLM
                 context_parts = []
                 sources_info = []
 
@@ -176,7 +120,7 @@ def main() -> None:
 
                 context_str = "\n\n".join(context_parts)
 
-                # 2. Chamar o modelo Gemini
+                # Chamada REST ao cliente Gemini
                 llm_client = GeminiClient(api_key=st.session_state.api_key)
                 response_text = llm_client.generate(
                     prompt=prompt,
@@ -185,19 +129,12 @@ def main() -> None:
                     model_name=selected_model
                 )
 
-                # Exibir a resposta
+                # Exibir resposta e gaveta de fontes
                 st.markdown(response_text)
-
-                # Exibir as fontes consultadas se houver resultados
                 if sources_info:
-                    with st.expander("📚 Fontes consultadas no guia oficial da Receita Federal"):
-                        for src in sources_info:
-                            st.markdown(
-                                f"- **Pergunta {src['number']}** (Pág. {src['page']}) — *{src['title']}* "
-                                f"`Relevância: {src['relevance']}`"
-                            )
+                    render_sources_drawer_organism(sources_info)
 
-                # Salvar mensagem e fontes no histórico
+                # Salvar mensagem no histórico
                 st.session_state.messages.append({
                     "role": "assistant",
                     "content": response_text,
