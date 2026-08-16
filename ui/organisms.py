@@ -1,13 +1,11 @@
 """
-Módulo de Organismos (Atomic Design) — Seções completas e complexas da interface.
+Organismos (Atomic Design) — Complexos de moléculas e átomos que formam seções completas da interface.
 
-Combina moléculas e átomos no Hero Banner, Painel de Controle Sidebar,
-Cards de Perguntas Rápidas e Gaveta de Fontes da Receita Federal.
+Totalmente adaptativo a Light Mode e Dark Mode.
 """
 
 import streamlit as st
-from typing import Optional, List, Dict, Tuple, Any
-from ui.atoms import render_badge
+from typing import Tuple, List, Dict, Any, Optional
 from ui.molecules import (
     render_source_card,
     render_api_status_molecule,
@@ -16,87 +14,90 @@ from ui.molecules import (
 
 
 def render_hero_banner() -> None:
-    """Renderiza o cabeçalho Hero principal em estilo Banner Glassmorphism."""
-    html = """
-    <div class="hero-banner">
-        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.5rem;">
-            <span class="atom-badge atom-badge-accent">
-                ✨ Challenge Alura Agente
-            </span>
-            <span class="atom-badge atom-badge-primary" style="background: rgba(255,255,255,0.2); color: #FFF; border: 1px solid rgba(255,255,255,0.3);">
-                IRPF 2026 Oficial
-            </span>
+    """Renderiza o Hero Banner principal no topo da página."""
+    st.markdown(
+        """
+        <div style="background: var(--hero-bg); color: var(--hero-text); padding: 1.8rem 2rem; border-radius: 16px; margin-bottom: 1.5rem; box-shadow: var(--shadow-subtle);">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+                <span style="font-size: 2.8rem;">🦁</span>
+                <div>
+                    <h1 style="margin: 0; font-size: 1.8rem; font-weight: 700; color: #FFFFFF !important;">Leão IRPF Agent</h1>
+                    <p style="margin: 0.3rem 0 0 0; opacity: 0.92; font-size: 0.95rem;">
+                        Assistente Virtual Tributário Inteligente para o <b>Imposto de Renda 2026</b>
+                    </p>
+                </div>
+            </div>
+            <div style="margin-top: 1rem; padding-top: 0.8rem; border-top: 1px solid rgba(255,255,255,0.2); font-size: 0.82rem; opacity: 0.88;">
+                🔒 Respostas fundamentadas e auditadas com base estrita no guia oficial de Perguntas e Respostas da Receita Federal.
+            </div>
         </div>
-        <h1 class="hero-title">🦁 Leão IRPF Agent</h1>
-        <div class="hero-subtitle">
-            Assistente tributário inteligente especializado na Declaração do Imposto de Renda Pessoa Física 2026. 
-            Respostas fundamentadas e auditadas com base estrita no guia oficial de <b>Perguntas e Respostas da Receita Federal</b>.
-        </div>
-    </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def render_sidebar_organism(current_api_key: str, chunks_count: int) -> Tuple[str, str, bool]:
     """
-    st.markdown(html, unsafe_allow_html=True)
+    Renderiza todo o painel de controle da barra lateral.
 
-
-def render_sidebar_organism(
-    current_api_key: str,
-    chunks_count: int
-) -> Tuple[str, str, bool]:
-    """
-    Renderiza todo o painel de controle e configurações na barra lateral (Sidebar).
-
-    :param current_api_key: Chave de API atual na sessão.
-    :param chunks_count: Quantidade de perguntas do PDF indexadas.
-    :return: Tupla (nova_api_key, modelo_selecionado, botao_limpar_clicado).
+    :param current_api_key: Chave API atual no session state.
+    :param chunks_count: Total de perguntas indexadas no RAG.
+    :return: Tupla com (nova_api_key, modelo_selecionado, botao_limpar_clicado).
     """
     with st.sidebar:
         st.markdown(
-            '<h2 style="font-family: \'Outfit\', sans-serif; font-size: 1.4rem; color: #0F5132; margin-bottom: 0;">'
-            '⚙️ Painel de Controle'
-            '</h2>',
+            """
+            <div style="display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1.2rem;">
+                <span style="font-size: 1.8rem;">🦁</span>
+                <div>
+                    <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">Leão IRPF Agent</h3>
+                    <span style="font-size: 0.75rem; color: var(--text-secondary);">Assistente Tributário — IRPF 2026</span>
+                </div>
+            </div>
+            """,
             unsafe_allow_html=True
         )
-        st.caption("Configurações do Assistente & Modelo LLM")
-        st.markdown("---")
 
-        # Status da Conexão
-        is_configured = bool(current_api_key and len(current_api_key) > 10)
-        render_api_status_molecule(is_configured)
+        st.divider()
 
-        # Campo da Chave de API
-        st.markdown("##### 🔑 Credenciais")
+        # Status do Documento
+        st.markdown("<h4 style='font-size: 0.9rem; color: var(--text-primary); margin-bottom: 0.5rem;'>📊 Documento Fonte</h4>", unsafe_allow_html=True)
+        render_document_status_molecule(chunks_count)
+
+        st.divider()
+
+        # Configurações de API
+        st.markdown("<h4 style='font-size: 0.9rem; color: var(--text-primary); margin-bottom: 0.5rem;'>🔑 Configuração da API</h4>", unsafe_allow_html=True)
+        render_api_status_molecule(current_api_key)
+
         new_api_key = st.text_input(
             "Chave de API do Gemini",
             value=current_api_key,
             type="password",
-            help="Obtenha gratuitamente no Google AI Studio (https://aistudio.google.com/)"
+            help="Sua chave de API do Google Gemini (salva apenas na sessão).",
+            placeholder="AIzaSy..."
         )
 
-        # Seletor de Modelo Gemini
-        st.markdown("##### 🤖 Modelo de Inteligência Artificial")
         selected_model = st.selectbox(
-            "Selecione o modelo",
-            options=["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"],
+            "Modelo do Gemini",
+            options=["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"],
             index=0,
-            help="Modelo de linguagem responsável pela síntese das respostas."
+            help="Selecione o modelo do Gemini para gerar as respostas."
         )
 
-        st.markdown("---")
-        # Status do Documento PDF
-        st.markdown("##### 📚 Base de Conhecimento")
-        render_document_status_molecule(chunks_count, "P&R IRPF 2026.pdf")
+        st.divider()
 
-        st.markdown("---")
-        # Ação Global: Limpar Histórico
+        # Controle de Histórico
         clear_clicked = st.button(
-            "🧹 Limpar Histórico de Conversa",
+            "🗑️ Limpar Conversa",
             use_container_width=True,
             help="Apaga todo o histórico da conversa atual."
         )
 
-        # Rodapé
+        # Rodapé da Sidebar
         st.markdown(
             """
-            <div style='text-align: center; color: #94A3B8; font-size: 0.78rem; margin-top: 2rem; line-height: 1.4;'>
+            <div style='text-align: center; color: var(--text-muted); font-size: 0.78rem; margin-top: 2rem; line-height: 1.4;'>
                 <b>Leão IRPF Agent v1.0</b><br/>
                 Desenvolvido por Marcelo Sales<br/>
                 <i>ONE — Oracle Next Education</i>
@@ -110,12 +111,12 @@ def render_sidebar_organism(
 
 def render_quick_questions_organism() -> Optional[str]:
     """
-    Renderiza o painel superior de botões rápidos categorizados.
+    Renderiza o painel superior de botões rápidos categorizados com suporte adaptativo a temas.
 
     :return: Texto da pergunta selecionada (se algum botão for clicado) ou None.
     """
     st.markdown(
-        '<h4 style="font-family: \'Outfit\', sans-serif; margin-bottom: 0.8rem; font-size: 1.1rem; color: #1E293B;">'
+        '<h4 style="font-family: var(--font-title); margin-bottom: 0.8rem; font-size: 1.1rem; color: var(--text-primary);">'
         '💡 Sugestões de Perguntas Rápidas'
         '</h4>',
         unsafe_allow_html=True
@@ -127,10 +128,9 @@ def render_quick_questions_organism() -> Optional[str]:
     with col1:
         st.markdown(
             """
-            <div class="quick-card">
-                <div class="quick-card-icon">📌</div>
-                <div class="quick-card-title">Obrigatoriedade</div>
-                <div class="quick-card-desc">Quem precisa entregar a declaração em 2026?</div>
+            <div class="leao-card" style="height: 95px;">
+                <div class="leao-card-title">📌 Obrigatoriedade</div>
+                <div class="leao-card-body">Quem precisa entregar a declaração em 2026?</div>
             </div>
             """,
             unsafe_allow_html=True
@@ -141,44 +141,47 @@ def render_quick_questions_organism() -> Optional[str]:
     with col2:
         st.markdown(
             """
-            <div class="quick-card">
-                <div class="quick-card-icon">🎓</div>
-                <div class="quick-card-title">Dedução de Educação</div>
-                <div class="quick-card-desc">Quais são as regras e limites para instrução?</div>
+            <div class="leao-card" style="height: 95px;">
+                <div class="leao-card-title">🎓 Dedução de Educação</div>
+                <div class="leao-card-body">Quais são as regras e limites para instrução?</div>
             </div>
             """,
             unsafe_allow_html=True
         )
         if st.button("Consultar Educação", key="btn_educ", use_container_width=True):
-            selected_query = "Quais são as regras e limites para dedução de despesas com instrução?"
+            selected_query = "Quais são as regras e limites para dedução de despesas com instrução no IRPF?"
 
     with col3:
         st.markdown(
             """
-            <div class="quick-card">
-                <div class="quick-card-icon">👨‍👩‍👧</div>
-                <div class="quick-card-title">Dependentes</div>
-                <div class="quick-card-desc">Quem pode entrar como dependente na declaração?</div>
+            <div class="leao-card" style="height: 95px;">
+                <div class="leao-card-title">👨‍👩‍👧 Dependentes</div>
+                <div class="leao-card-body">Quem pode entrar como dependente na declaração?</div>
             </div>
             """,
             unsafe_allow_html=True
         )
         if st.button("Consultar Dependentes", key="btn_dep", use_container_width=True):
-            selected_query = "Quem pode ser considerado dependente na declaração de imposto de renda?"
+            selected_query = "Quem pode ser considerado dependente na declaração do Imposto de Renda?"
 
-    st.markdown("<div style='margin-bottom: 1.5rem;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-bottom: 1.2rem;'></div>", unsafe_allow_html=True)
     return selected_query
 
 
 def render_sources_drawer_organism(sources: List[Dict[str, Any]]) -> None:
     """
-    Renderiza a gaveta/expander de fontes citadas.
+    Renderiza a gaveta de fontes citadas.
 
-    :param sources: Lista de dicionários das fontes recuperadas pela busca RAG.
+    :param sources: Lista de fontes contendo (number, title, page, relevance).
     """
     if not sources:
         return
 
-    with st.expander(f"📚 Ver {len(sources)} Fontes Consultadas no Guia Oficial da Receita Federal"):
-        for src in sources:
-            render_source_card(src)
+    with st.expander("📚 Fontes consultadas no guia oficial da Receita Federal", expanded=False):
+        for s in sources:
+            render_source_card(
+                number=s.get("number", 0),
+                title=s.get("title", ""),
+                page=s.get("page", 0),
+                relevance=s.get("relevance", "Relevante")
+            )

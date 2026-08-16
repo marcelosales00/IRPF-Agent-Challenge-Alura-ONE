@@ -1,76 +1,70 @@
 """
-Módulo de Moléculas (Atomic Design) — Combinação de átomos em unidades funcionais.
+Moléculas (Atomic Design) — Combinações de átomos em componentes reutilizáveis.
 
-Contém renderizadores de cards de citação, status da API/Documento,
-balões de chat e pílulas de atalho interativas.
+Componentes adaptativos a temas (Light Mode / Dark Mode).
 """
 
 import streamlit as st
-from typing import Dict, List, Any
-from ui.atoms import render_badge, render_status_dot
+from ui.atoms import render_badge
 
 
-def render_source_card(src: Dict[str, Any]) -> None:
+def render_source_card(number: int, title: str, page: int, relevance: str) -> None:
     """
-    Renderiza um card individual de citação do manual oficial da Receita Federal.
+    Renderiza um card de citação de fonte oficial do PDF da Receita Federal.
 
-    :param src: Dicionário com número, título, página e relevância.
+    :param number: Número oficial da pergunta (ex: 35).
+    :param title: Título/pergunta do guia.
+    :param page: Número da página no PDF original.
+    :param relevance: Rótulo de relevância da busca.
     """
-    number = src.get("number", "000")
-    title = src.get("title", "")
-    page = src.get("page", 1)
-    relevance = src.get("relevance", "Média Relevância")
-
-    badge_variant = "primary" if "Alta" in relevance else "accent"
-
-    html = f"""
-    <div class="source-card">
-        <div class="source-header">
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-weight: 700; color: #0F5132; font-family: 'Outfit', sans-serif;">
-                    📌 Pergunta {number}
-                </span>
-                <span class="source-meta">(Página {page})</span>
+    st.markdown(
+        f"""
+        <div class="leao-card" style="border-left: 4px solid var(--color-primary);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                <span class="leao-card-title">📌 Pergunta {number} <small style="color: var(--text-muted); font-weight: normal;">(Página {page})</small></span>
+                <span class="leao-badge">{relevance}</span>
             </div>
-            {render_badge(relevance, badge_variant)}
+            <div class="leao-card-body">
+                {title}
+            </div>
         </div>
-        <div class="source-title">{title}</div>
-    </div>
-    """
-    st.markdown(html, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
 
-def render_api_status_molecule(is_configured: bool) -> None:
-    """Renderiza o estado atual de conexão com a API Gemini na Sidebar."""
-    dot = render_status_dot(is_configured)
-    status_text = "API Gemini Conectada" if is_configured else "Chave API Não Configurada"
-    badge_variant = "primary" if is_configured else "accent"
+def render_api_status_molecule(api_key: str) -> None:
+    """Renderiza a molécula de status de configuração da API Key."""
+    has_key = bool(api_key.strip())
+    status_color = "var(--badge-text)" if has_key else "#EF4444"
+    status_bg = "var(--badge-bg)" if has_key else "rgba(239, 68, 68, 0.15)"
+    status_text = "Chave API Configurada" if has_key else "Chave API Ausente (Insira abaixo)"
+    icon = "✅" if has_key else "⚠️"
 
-    html = f"""
-    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0.6rem 0.8rem; background: #F8FAFC; border-radius: 10px; border: 1px solid #E2E8F0; margin-bottom: 1rem;">
-        <div style="display: flex; align-items: center; font-size: 0.85rem; font-weight: 600;">
-            {dot} {status_text}
+    st.markdown(
+        f"""
+        <div style="padding: 0.6rem 0.8rem; border-radius: 8px; background: {status_bg}; color: {status_color}; border: 1px solid {status_color}; font-size: 0.82rem; font-weight: 500; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem;">
+            <span>{icon}</span>
+            <span>{status_text}</span>
         </div>
-        {render_badge("REST Direct", badge_variant)}
-    </div>
-    """
-    st.markdown(html, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
 
 
-def render_document_status_molecule(chunks_count: int, filename: str) -> None:
-    """Renderiza os metadados do PDF oficial indexado."""
-    html = f"""
-    <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 0.9rem 1.1rem; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 0.4rem;">
-            <span style="font-size: 1.2rem;">📄</span>
-            <span style="font-weight: 700; font-size: 0.92rem; font-family: 'Outfit', sans-serif;">Guia Oficial IRPF 2026</span>
+def render_document_status_molecule(chunks_count: int) -> None:
+    """Renderiza a molécula de status da base de conhecimento PDF."""
+    st.markdown(
+        f"""
+        <div class="leao-card" style="background: var(--badge-bg); border-color: var(--badge-border); padding: 0.6rem 0.8rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--badge-text); font-weight: 600; font-size: 0.85rem;">
+                <span>📖</span>
+                <span>{chunks_count} perguntas indexadas!</span>
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                Documento oficial: <b>P&R IRPF 2026</b>
+            </div>
         </div>
-        <div style="font-size: 0.82rem; color: #64748B; margin-bottom: 0.4rem;">
-            Arquivo: <code>{filename}</code>
-        </div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-            {render_badge(f"✅ {chunks_count} Perguntas Indexadas", "primary")}
-        </div>
-    </div>
-    """
-    st.markdown(html, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )

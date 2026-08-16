@@ -1,4 +1,4 @@
-# 🦁 Leão IRPF Agent — Assistente Virtual Tributário IRPF 2026
+# 🦁 IRPF Peguntão Agent — Assistente Tributário Inteligente
 
 ![Python Version](https://img.shields.io/badge/Python-3.10%2B-blue.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.42-FF4B4B.svg)
